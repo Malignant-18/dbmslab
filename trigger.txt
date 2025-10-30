@@ -1,0 +1,61 @@
+-- ========= 1. CREATE TABLES =========
+-- Corrected 'retires' column syntax
+CREATE TABLE salworker (
+  wid INT PRIMARY KEY,
+  name VARCHAR(30),
+  salary INT,
+  tax INT,
+  retires VARCHAR(10) DEFAULT 'N'
+);
+
+CREATE TABLE address (
+  wid INT,
+  street VARCHAR(40),
+  city VARCHAR(40),
+  pin INT
+);
+
+CREATE TABLE pension(
+  wid INT,
+  penamount INT
+);
+
+-- ========= 2. INSERT DATA (Correct Oracle Syntax) =========
+-- You must insert rows one by one or use INSERT ALL
+INSERT INTO salworker (wid, name, salary, tax, retires) 
+VALUES (1, 'joe', 6000, 0, 'N');
+
+INSERT INTO salworker (wid, name, salary, tax, retires) 
+VALUES (2, 'geo', 3000, 0, 'N');
+
+INSERT INTO salworker (wid, name, salary, tax, retires) 
+VALUES (3, 'elsa', 16000, 0, 'N');
+
+
+SET SERVEROUTPUT ON;
+
+-- ========= 5. CREATE TRIGGER =========
+CREATE OR REPLACE TRIGGER trig
+AFTER UPDATE OF retires ON salworker
+FOR EACH ROW
+DECLARE
+  vpen NUMBER;
+BEGIN
+  IF :NEW.retires = 'Y' AND :OLD.retires = 'N' THEN
+    
+    vpen := :NEW.salary * 0.5;
+
+    INSERT INTO pension (wid, penamount)
+    VALUES (:NEW.wid, vpen);
+    
+    DBMS_OUTPUT.PUT_LINE('New dssd calculated for WID ' || :NEW.wid || '. Amount: ' || vpen);
+    
+  END IF;
+END;
+/
+UPDATE salworker
+SET retires = 'Y'
+WHERE wid = 1;
+
+select * from salworker;
+select * from pension;

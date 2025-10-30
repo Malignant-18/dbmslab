@@ -1,0 +1,93 @@
+-- ========= 1. CREATE TABLES =========
+-- Corrected 'retires' column syntax
+CREATE TABLE salworker (
+  wid INT PRIMARY KEY,
+  name VARCHAR(30),
+  salary INT,
+  tax INT,
+  retires VARCHAR(10) DEFAULT 'N'
+);
+
+CREATE TABLE address (
+  wid INT,
+  street VARCHAR(40),
+  city VARCHAR(40),
+  pin INT
+);
+
+CREATE TABLE pension(
+  wid INT,
+  penamount INT
+);
+
+-- ========= 2. INSERT DATA (Correct Oracle Syntax) =========
+-- You must insert rows one by one or use INSERT ALL
+INSERT INTO salworker (wid, name, salary, tax, retires) 
+VALUES (1, 'joe', 6000, 0, 'N');
+
+INSERT INTO salworker (wid, name, salary, tax, retires) 
+VALUES (2, 'geo', 3000, 0, 'N');
+
+INSERT INTO salworker (wid, name, salary, tax, retires) 
+VALUES (3, 'elsa', 16000, 0, 'N');
+
+-- Save the inserts
+COMMIT;
+
+-- ========= 3. CREATE PROCEDURE (Corrected) =========
+SET SERVEROUTPUT ON;
+
+CREATE OR REPLACE PROCEDURE proc (pid IN NUMBER)
+IS
+  vsalrec salworker%ROWTYPE;
+  vslab NUMBER;
+  vtax NUMBER;
+BEGIN
+  -- 1. Get the worker's record
+  SELECT * INTO vsalrec FROM salworker WHERE wid = pid;
+
+  -- 2. Calculate the tax slab
+  IF vsalrec.salary < 5000 THEN
+    vslab := 0;
+  ELSIF vsalrec.salary > 5000 AND vsalrec.salary <= 8000 THEN
+    vslab := 0.05;
+  ELSIF vsalrec.salary > 8000 AND vsalrec.salary <= 10000 THEN
+    vslab := 0.1;
+  ELSE
+    vslab := 0.15;
+  END IF; -- *** FIX: Added missing END IF ***
+
+  -- 3. Calculate the tax
+  vtax := vsalrec.salary * vslab;
+
+  -- 4. Update the tax *only for the specified worker*
+  UPDATE salworker
+  SET tax = vtax
+  WHERE wid = pid; -- *** FIX: Added WHERE clause ***
+
+  dbms_output.put_line('Updated tax for ' || vsalrec.name || ' (ID: ' || pid || ') is: ' || vtax);
+
+EXCEPTION
+  WHEN NO_DATA_FOUND THEN
+    dbms_output.put_line('Error: No worker found with ID ' || pid);
+  WHEN OTHERS THEN
+    dbms_output.put_line('An error occurred: ' || SQLERRM);
+END;
+/
+
+-- ========= 4. HOW TO TEST THE PROCEDURE =========
+
+-- Test for 'joe' (Salary 6000, tax should be 6000 * 0.05 = 300)
+BEGIN
+  proc(1); 
+END;
+/
+
+-- Test for 'elsa' (Salary 16000, tax should be 16000 * 0.15 = 2400)
+BEGIN
+  proc(3);
+END;
+/
+
+-- Check the table to see the final results
+SELECT * FROM salworker;

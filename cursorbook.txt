@@ -1,0 +1,122 @@
+-- ========= SETUP: Create Tables =========
+CREATE TABLE Members (
+  MemberID NUMBER PRIMARY KEY,
+  MemberName VARCHAR2(100)
+);
+
+CREATE TABLE Books (
+  BookID NUMBER PRIMARY KEY,
+  BookName VARCHAR2(100)
+);
+
+CREATE TABLE Borrow (
+  BorrowID NUMBER PRIMARY KEY,
+  BookID NUMBER,
+  MemberID NUMBER,
+  BorrowDate DATE,
+  ReturnDate DATE,
+  Fine NUMBER(10, 2) DEFAULT 0
+);
+
+-- Insert sample data
+INSERT INTO Members VALUES (1, 'Alice Smith');
+INSERT INTO Members VALUES (2, 'Bob Johnson');
+INSERT INTO Books VALUES (101, 'Dune');
+INSERT INTO Books VALUES (102, 'Foundation');
+INSERT INTO Borrow VALUES (1, 101, 1, SYSDATE - 40, NULL, 0); -- Alice, Overdue
+INSERT INTO Borrow VALUES (2, 102, 1, SYSDATE - 10, NULL, 0); -- Alice, Not Overdue
+INSERT INTO Borrow VALUES (3, 102, 2, SYSDATE - 60, NULL, 0); -- Bob, Overdue
+INSERT INTO Borrow VALUES (4, 101, 2, SYSDATE - 50, SYSDATE - 5, 0); -- Bob, Returned
+
+-- ========= REQUIRED FOR OUTPUT =========
+SET SERVEROUTPUT ON;
+
+-- ========= THE PROCEDURE WITH CURSOR (OPEN/FETCH/CLOSE) =========
+CREATE OR REPLACE PROCEDURE sp_calculate_overdue_fines
+IS
+  -- 1. Declare variables to hold calculated values
+  v_overdue_days NUMBER;
+  v_fine         NUMBER;
+  
+  -- 2. Declare variables to hold data from the FETCH
+  v_borrow_id    Borrow.BorrowID%TYPE;
+  v_borrow_date  Borrow.BorrowDate%TYPE;
+  v_member_name  Members.MemberName%TYPE;
+  v_book_name    Books.BookName%TYPE;
+
+  -- 3. Define the cursor
+  CURSOR c_overdue_borrows IS
+    SELECT
+      br.BorrowID,
+      br.BorrowDate,
+      m.MemberName,
+      b.BookName
+    FROM
+      Borrow br
+      JOIN Members m ON br.MemberID = m.MemberID
+      JOIN Books b ON br.BookID = b.BookID
+    WHERE
+      br.ReturnDate IS NULL
+      AND br.BorrowDate < (SYSDATE - 30);
+
+BEGIN
+  DBMS_OUTPUT.PUT_LINE('--- 💰 Overdue Fines Report ---');
+  
+  -- 4. OPEN the cursor: This executes the query.
+  OPEN c_overdue_borrows;
+  
+  -- 5. Start a loop to fetch the data
+  LOOP
+    -- 6. FETCH: Get one row and put it into our variables
+    FETCH c_overdue_borrows INTO
+      v_borrow_id,
+      v_borrow_date,
+      v_member_name,
+      v_book_name;
+      
+    -- 7. Exit the loop when no more rows are found
+    EXIT WHEN c_overdue_borrows%NOTFOUND;
+    
+    -- 8. Process the row
+    v_overdue_days := (TRUNC(SYSDATE) - TRUNC(v_borrow_date)) - 30;
+    v_fine := v_overdue_days * 2;
+
+    -- Update the Borrow table
+    UPDATE Borrow
+    SET Fine = v_fine
+    WHERE BorrowID = v_borrow_id;
+
+    -- Display the details
+    DBMS_OUTPUT.PUT_LINE('Member: ' || v_member_name);
+    DBMS_OUTPUT.PUT_LINE('Book: ' || v_book_name);
+    DBMS_OUTPUT.PUT_LINE('Overdue Days: ' || v_overdue_days);
+    DBMS_OUTPUT.PUT_LINE('Fine Added: ' || v_fine);
+    DBMS_OUTPUT.PUT_LINE('--------------------------------');
+    
+  END LOOP;
+  
+  -- 9. CLOSE the cursor: Release the memory
+  CLOSE c_overdue_borrows;
+
+  COMMIT; -- Save all the updates
+  DBMS_OUTPUT.PUT_LINE('--- Report Complete. Fines updated. ---');
+END;
+/
+
+-- ========= TESTING THE PROCEDURE =========
+-- Now, we execute the procedure we just created.
+BEGIN
+  sp_calculate_overdue_fines;
+END;
+/
+
+-- ========= VERIFY THE RESULTS =========
+-- Run this query after to see the updated fines
+SELECT 
+  m.MemberName, 
+  b.BookName, 
+  br.BorrowDate, 
+  br.Fine 
+FROM Borrow br
+JOIN Members m ON br.MemberID = m.MemberID
+JOIN Books b ON br.BookID = b.BookID;
