@@ -1,0 +1,89 @@
+CREATE TABLE PUBLISHER (
+    Name    VARCHAR2(100) PRIMARY KEY,
+    Address VARCHAR2(200),
+    Phone   VARCHAR2(15)
+);
+
+CREATE TABLE BOOK (
+    Book_id        NUMBER PRIMARY KEY,
+    Title          VARCHAR2(200),
+    Publisher_Name VARCHAR2(100) REFERENCES PUBLISHER(Name),
+    Pub_Year       NUMBER(4)
+);
+
+CREATE TABLE BOOK_AUTHORS (
+    Book_id     NUMBER REFERENCES BOOK(Book_id),
+    Author_Name VARCHAR2(100),
+    PRIMARY KEY (Book_id, Author_Name)
+);
+
+CREATE TABLE LIBRARY_BRANCH (
+    Branch_id   NUMBER PRIMARY KEY,
+    Branch_Name VARCHAR2(100),
+    Address     VARCHAR2(200)
+);
+
+CREATE TABLE BOOK_COPIES (
+    Book_id      NUMBER REFERENCES BOOK(Book_id),
+    Branch_id    NUMBER REFERENCES LIBRARY_BRANCH(Branch_id),
+    No_of_Copies NUMBER,
+    PRIMARY KEY (Book_id, Branch_id)
+);
+
+CREATE TABLE BOOK_LENDING (
+    Book_id   NUMBER,
+    Branch_id NUMBER,
+    Card_No   NUMBER,
+    Date_Out  DATE,
+    Due_Date  DATE,
+    FOREIGN KEY (Book_id, Branch_id) REFERENCES BOOK_COPIES(Book_id, Branch_id)
+);
+
+
+2. Get the particulars of borrowers who have borrowed more than 3 books from Jan 2017 to Jun 2017.
+SELECT
+    Card_No
+FROM
+    BOOK_LENDING
+WHERE
+    Date_Out BETWEEN DATE '2017-01-01' AND DATE '2017-06-30'
+GROUP BY
+    Card_No
+HAVING
+    COUNT(Book_id) > 3;
+
+33. Create a view of all books published in the year 2020.
+CREATE OR REPLACE VIEW Books_Published_In_2020 AS
+SELECT
+    Book_id,
+    Title,
+    Publisher_Name
+FROM
+    BOOK
+WHERE
+    Pub_Year = 2020;
+    
+ Create a view of all books and its number of copies that are currently available in the Library.
+
+CREATE OR REPLACE VIEW Available_Book_Copies AS
+WITH Lent_Copies AS (
+    -- First, count how many copies of each book are currently lent out from each branch
+    SELECT Book_id, Branch_id, COUNT(*) as Lent_Count
+    FROM BOOK_LENDING
+    GROUP BY Book_id, Branch_id
+)
+-- Now, calculate the available copies
+SELECT
+    b.Title,
+    lb.Branch_Name,
+    bc.No_of_Copies AS Total_Copies,
+    NVL(lc.Lent_Count, 0) AS Lent_Out,
+    (bc.No_of_Copies - NVL(lc.Lent_Count, 0)) AS Available_Copies
+FROM
+    BOOK_COPIES bc
+JOIN
+    BOOK b ON bc.Book_id = b.Book_id
+JOIN
+    LIBRARY_BRANCH lb ON bc.Branch_id = lb.Branch_id
+LEFT JOIN
+    Lent_Copies lc ON bc.Book_id = lc.Book_id AND bc.Branch_id = lc.Branch_id;

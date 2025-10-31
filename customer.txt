@@ -1,0 +1,91 @@
+CREATE TABLE SALESMAN (
+    Salesman_id NUMBER PRIMARY KEY,
+    Name        VARCHAR2(50),
+    City        VARCHAR2(50),
+    Commission  NUMBER
+);
+
+CREATE TABLE CUSTOMER (
+    Customer_id  NUMBER PRIMARY KEY,
+    Cust_Name    VARCHAR2(50),
+    City         VARCHAR2(50),
+    Grade        NUMBER,
+    Salesman_id  NUMBER REFERENCES SALESMAN(Salesman_id)
+);
+
+CREATE TABLE ORDERS (
+    Ord_No       NUMBER PRIMARY KEY,
+    Purchase_Amt NUMBER,
+    Ord_Date     DATE,
+    Customer_id  NUMBER REFERENCES CUSTOMER(Customer_id),
+    Salesman_id  NUMBER REFERENCES SALESMAN(Salesman_id)
+);
+
+2. Find the name and numbers of all salesmen who had more than one customer.
+SELECT
+    s.Salesman_id,
+    s.Name
+FROM
+    SALESMAN s
+JOIN
+    CUSTOMER c ON s.Salesman_id = c.Salesman_id
+GROUP BY
+    s.Salesman_id, s.Name
+HAVING
+    COUNT(c.Customer_id) > 1;
+    
+3. List all salesmen and indicate those who have and don’t have customers in their cities.
+
+SELECT
+    s.Name,
+    s.City,
+    CASE
+        WHEN EXISTS (
+            SELECT 1
+            FROM CUSTOMER c
+            WHERE c.Salesman_id = s.Salesman_id AND c.City = s.City
+        )
+        THEN 'Has customers in their city'
+        ELSE 'No customers in their city'
+    END AS Status
+FROM
+    SALESMAN s;
+
+4. Create a view that finds the salesman who has the customer with the highest order of a day.
+CREATE OR REPLACE VIEW Daily_Top_Sales AS
+SELECT
+    s.Name AS Salesman_Name,
+    c.Cust_Name AS Customer_Name,
+    o.Purchase_Amt,
+    o.Ord_Date
+FROM
+    ORDERS o
+JOIN
+    CUSTOMER c ON o.Customer_id = c.Customer_id
+JOIN
+    SALESMAN s ON o.Salesman_id = s.Salesman_id
+WHERE
+    (TRUNC(o.Ord_Date), o.Purchase_Amt) IN (
+        -- This subquery finds the maximum purchase amount for each day
+        SELECT
+            TRUNC(Ord_Date),
+            MAX(Purchase_Amt)
+        FROM
+            ORDERS
+        GROUP BY
+            TRUNC(Ord_Date)
+    );
+    CREATE OR REPLACE TRIGGER passenger_event_trigger
+AFTER INSERT OR DELETE OR UPDATE ON Passenger
+BEGIN
+    IF INSERTING THEN
+        DBMS_OUTPUT.PUT_LINE('1 Record is inserted');
+    ELSIF DELETING THEN
+        DBMS_OUTPUT.PUT_LINE('1 Record is deleted');
+    ELSIF UPDATING THEN
+        DBMS_OUTPUT.PUT_LINE('1 Record is updated');
+    END IF;
+END;
+/
+
+
